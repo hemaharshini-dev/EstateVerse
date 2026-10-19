@@ -1,36 +1,31 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# EstateVerse
 
-## Getting Started
+EstateVerse is a small portfolio concept for exploring a fictional Hyderabad residential development. It demonstrates an interactive property discovery flow inspired by real-estate digital-twin products. Aurelia Heights, its apartment inventory, prices, and layouts are fictional.
 
-First, run the development server:
+## Run locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open `http://localhost:3000`. The project also supports `npm run build` and `npm start` for a production build.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Demo flow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+1. Filter the local apartment records or try a supported search such as `2 BHK under 80 lakh` or `A-0402`.
+2. Select a result or a highlighted apartment in the development overview.
+3. Open **View in 3D** to inspect the furnished apartment cutaway. Choose a room in the viewer or floor plan to highlight the same room in the 3D scene.
+4. Return to the development overview or open session insights to see unit and room selections, searches, filter changes, and floor-plan opens from the current visit.
 
-## Learn More
+Use **Quick tour** for a short walkthrough. Search is deterministic local matching, not an LLM. Session insights stay in page state and are not sent or persisted.
 
-To learn more about Next.js, take a look at the following resources:
+## Scope and accuracy
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- 15 fictional apartment records stored in `src/data/apartments.ts`.
+- Procedural Three.js site and furnished apartment geometry in `src/components/DevelopmentScene.tsx`.
+- Filters, supported search phrases, selection state, room linking, floor plan, and session-only analytics are in `src/app/page.tsx`.
+- The 3D apartment and SVG floor plan are conceptual illustrations, not construction-accurate models or drawings. Price is sample data in lakh INR.
+- No API keys, external database, paid service, or backend is required. The core 3D experience uses generated geometry rather than remote images.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+See [MVP_PLAN.md](./MVP_PLAN.md) for the product scope and implementation outline.

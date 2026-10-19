@@ -1,4 +1,5 @@
 export type Availability = "Available" | "Reserved" | "Sold";
+export type RoomName = "Living" | "Kitchen" | "Bedroom 1" | "Bedroom 2" | "Bedroom 3" | "Bath";
 export type Apartment = {
   id: string;
   tower: "Tower A" | "Tower B" | "Tower C";

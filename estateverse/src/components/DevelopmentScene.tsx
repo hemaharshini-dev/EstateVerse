@@ -5,10 +5,10 @@ import { Canvas } from "@react-three/fiber";
 import { useThree } from "@react-three/fiber";
 import { useEffect, useMemo, useRef } from "react";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
-import type { Apartment } from "@/data/apartments";
+import type { Apartment, RoomName } from "@/data/apartments";
 import { apartments as allApartments } from "@/data/apartments";
 
-type Props = { selectedId: string; visibleIds: Set<string>; onSelect: (id: string) => void; resetKey?: number; viewMode: "development" | "apartment" };
+type Props = { selectedId: string; visibleIds: Set<string>; onSelect: (id: string) => void; resetKey?: number; viewMode: "development" | "apartment"; activeRoom:RoomName; onRoomSelect:(room:RoomName)=>void };
 const towerData = [
   { name: "Tower A", x: -5.1, z: 0.7, floors: 13, tint: "#8d776b" },
   { name: "Tower B", x: 0, z: -1, floors: 15, tint: "#a48b78" },
@@ -55,8 +55,9 @@ function Tree({ position, size=1 }: { position:[number,number,number]; size?:num
   </group>;
 }
 
-function Interior({ bedrooms }: { bedrooms:number }) {
+function Interior({ bedrooms,activeRoom,onRoomSelect }: { bedrooms:number;activeRoom:RoomName;onRoomSelect:(room:RoomName)=>void }) {
   const block=(position:[number,number,number],size:[number,number,number],color:string)=><mesh position={position} castShadow receiveShadow><boxGeometry args={size}/><meshStandardMaterial color={color} roughness={.8}/></mesh>;
+  const zone=(name:RoomName,position:[number,number,number],size:[number,number,number])=><mesh key={name} position={position} onClick={event=>{event.stopPropagation();onRoomSelect(name);}}><boxGeometry args={size}/><meshStandardMaterial color={activeRoom===name?"#e99562":"#b99a7a"} emissive={activeRoom===name?"#b84e20":"#000000"} emissiveIntensity={activeRoom===name?.35:0} transparent opacity={activeRoom===name?.66:.15} depthWrite={false}/></mesh>;
   return <group>
     <color attach="background" args={["#302a26"]}/><ambientLight intensity={1.5}/><directionalLight position={[-5,10,8]} intensity={2.3} color="#ffe3c5" castShadow/><hemisphereLight args={["#dce5ed","#6e5b4a",.65]}/>
     {block([0,-.12,0],[9,.24,7],"#c8b39a")}
@@ -67,15 +68,16 @@ function Interior({ bedrooms }: { bedrooms:number }) {
     {block([-2.2,.38,1.75],[2.4,.58,.82],"#a47d62")}{block([-3.27,.68,1.75],[.28,.72,.92],"#967257")}{block([-2,.2,.45],[1.15,.13,.64],"#765d4d")}
     {block([-1.8,.55,-1.2],[1.5,.12,.8],"#8b6c52")}{block([-1.8,.28,-1.2],[.12,.55,.12],"#755b46")}
     {block([-2.5,.52,-2.85],[3.2,.72,.72],"#91877c")}{block([-2.5,.9,-2.85],[3.2,.08,.78],"#ded4c8")}
-    {block([2.35,.32,-.6],[2.55,.42,2.25],"#b8a897")}{block([2.35,.62,-.85],[2.4,.18,1.7],"#eee6dc")}{block([2.35,.62,-1.65],[2.5,.9,.18],"#795f4c")}
+    {block([1.45,.32,-.6],[2.15,.42,2.25],"#b8a897")}{block([1.45,.62,-.85],[2,.18,1.7],"#eee6dc")}{block([1.45,.62,-1.65],[2.1,.9,.18],"#795f4c")}
     {block([1.05,.42,-.45],[.45,.72,.48],"#8d715a")}{block([3.65,.42,-.45],[.45,.72,.48],"#8d715a")}
     {block([3.3,.28,2.35],[1.25,.5,1.1],"#b8c6c1")}{block([3.3,.58,2.35],[.7,.12,.55],"#e5e9e5")}
-    {bedrooms===3&&<>{block([-1.45,.34,2.62],[1.45,.48,.7],"#bcae9c")}{block([-1.45,.61,2.7],[1.35,.12,.45],"#f0e8de")}</>}
-    <mesh position={[0,-.01,0]}><boxGeometry args={[9.25,.06,7.25]}/><meshStandardMaterial color="#675848" transparent opacity={.2}/></mesh>
+    {block([.35,.34,2.45],[1.55,.48,.9],"#bcae9c")}{block([.35,.61,2.55],[1.4,.12,.58],"#f0e8de")}
+    {bedrooms===3&&<>{block([3,.32,-.6],[1.45,.42,2.25],"#b8a897")}{block([3,.62,-.85],[1.3,.18,1.7],"#eee6dc")}{block([3,.62,-1.65],[1.4,.9,.18],"#795f4c")}{block([2.15,1.02,-1.35],[.14,2,3.5],"#d8c9b6")}{block([1.35,.34,2.45],[1.4,.48,.9],"#bcae9c")}{block([1.35,.61,2.55],[1.3,.12,.58],"#f0e8de")}</>}
+    {zone("Living",[-2.4,.025,1.35],[3.8,.025,3.5])}{zone("Kitchen",[-2.4,.025,-2.3],[3.8,.025,1.8])}{bedrooms===3?<>{zone("Bedroom 1",[1.15,.025,-1.35],[1.8,.025,3.5])}{zone("Bedroom 2",[3.25,.025,-1.35],[2,.025,3.5])}{zone("Bedroom 3",[1.35,.025,2.3],[1.4,.025,2.05])}</>:<>{zone("Bedroom 1",[2.3,.025,-1.35],[3.65,.025,3.5])}{zone("Bedroom 2",[.35,.025,2.3],[1.75,.025,2.05])}</>}{zone("Bath",[3.3,.028,1.85],[1.7,.025,1.85])}
   </group>;
 }
 
-function Site({ selectedId, visibleIds, onSelect, resetKey=0, viewMode }: Props) {
+function Site({ selectedId, visibleIds, onSelect, resetKey=0, viewMode, activeRoom, onRoomSelect }: Props) {
   const controls=useRef<OrbitControlsImpl|null>(null);
   const {camera}=useThree();
   useEffect(()=>{
@@ -102,7 +104,7 @@ function Site({ selectedId, visibleIds, onSelect, resetKey=0, viewMode }: Props)
     {[
       [-8,.08,-2.3,.9],[-7.1,.08,3.45,.8],[-3.7,.08,3.45,.7],[-1.8,.08,3.45,.9],[3.6,.08,3.45,.75],[7.3,.08,-2.35,.85],[8,.08,3.2,.68],
     ].map(([x,y,z,size],i)=><Tree key={i} position={[x,y,z]} size={size}/>)}
-   </>:<Interior bedrooms={allApartments.find(unit=>unit.id===selectedId)?.bedrooms??2}/>}
+   </>:<Interior bedrooms={allApartments.find(unit=>unit.id===selectedId)?.bedrooms??2} activeRoom={activeRoom} onRoomSelect={onRoomSelect}/>}
     <OrbitControls ref={controls} makeDefault enablePan={false} minDistance={viewMode==="apartment"?6:14} maxDistance={viewMode==="apartment"?15:32} minPolarAngle={.3} maxPolarAngle={1.35}/>
   </>;
 }
