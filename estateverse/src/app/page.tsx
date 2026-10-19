@@ -1,86 +1,86 @@
 "use client";
 
-import { Canvas, useThree } from "@react-three/fiber";
-import { Environment, OrbitControls } from "@react-three/drei";
-import { AnimatePresence, motion } from "framer-motion";
-import { ArrowLeft, ArrowRight, BedDouble, Building2, Check, Compass, Home as HomeIcon, MapPin, Maximize2, Move3d, Play, RotateCcw, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import * as THREE from "three";
-import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
+import { motion, AnimatePresence } from "framer-motion";
+import { Activity, ArrowDownRight, ArrowRight, BedDouble, Building2, Check, ChevronRight, Compass, Home, MapPin, Maximize2, RotateCcw, Search, SlidersHorizontal, X } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis } from "recharts";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
+import DevelopmentScene from "@/components/DevelopmentScene";
+import { apartments, formatPrice, type Apartment, type Availability } from "@/data/apartments";
 
-type RoomName="Living room"|"Kitchen"|"Bedroom"|"Bathroom";
-const rooms:RoomName[]=["Living room","Kitchen","Bedroom","Bathroom"];
-const roomCopy:Record<RoomName,{subtitle:string;detail:string;size:string;icon:string}>= {
-  "Living room":{subtitle:"A little room to breathe.",detail:"Open-plan living and dining area with full-height balcony doors.",size:"18′ × 14′",icon:"01"},
-  Kitchen:{subtitle:"Made for everyday rituals.",detail:"L-shaped kitchen with stone counters and a separate utility nook.",size:"10′ × 9′",icon:"02"},
-  Bedroom:{subtitle:"Your own quieter corner.",detail:"Primary bedroom with wardrobe wall and an attached ensuite.",size:"14′ × 12′",icon:"03"},
-  Bathroom:{subtitle:"A calm start and end to the day.",detail:"Contemporary fittings, walk-in shower and warm natural finishes.",size:"8′ × 6′",icon:"04"},
-};
-
-function Box({position,scale,color,rotation=0,radius=0}:{position:[number,number,number];scale:[number,number,number];color:string;rotation?:number;radius?:number}) {
-  return <mesh position={position} rotation={[0,rotation,0]} castShadow receiveShadow><boxGeometry args={scale}/><meshStandardMaterial color={color} roughness={radius?0.5:.82} metalness={radius}/></mesh>;
+type SearchRule={bedrooms?:2|3;maxPrice?:number;maxPriceInclusive?:boolean;facing?:Apartment["facing"];status?:Availability;id?:string;recognized:boolean};
+type FacingFilter="Any"|Apartment["facing"];
+const statusOptions:Availability[]=["Available","Reserved","Sold"];
+function parseSearch(input:string):SearchRule{
+  const q=input.toLowerCase(); const result:SearchRule={recognized:false};
+  const beds=q.match(/\b(2|3)\s*(?:bhk|br|bed(?:room)?s?)\b/); if(beds){result.bedrooms=Number(beds[1]) as 2|3;result.recognized=true;}
+  const price=q.match(/\b(under|below|less than|up to|upto)\s*₹?\s*(\d+(?:\.\d+)?)\s*(crores?|cr|lakhs?|l)?\b/);
+  if(price){const n=Number(price[2]);const unit=price[3]??"lakh";result.maxPrice=/^(?:cr|crores?)$/.test(unit)?n*100:n;result.maxPriceInclusive=/^(?:up to|upto)$/.test(price[1]);result.recognized=true;}
+  const facing=q.match(/\b(north|east|south|west)(?:\s+facing)?\b/);if(facing){result.facing=(facing[1][0].toUpperCase()+facing[1].slice(1)) as Apartment["facing"];result.recognized=true;}
+  const status=q.match(/\b(available|reserved|sold)\b/);if(status){result.status=(status[1][0].toUpperCase()+status[1].slice(1)) as Availability;result.recognized=true;}
+  const id=q.match(/\b[a-c]-\d{4}\b/);if(id){result.id=id[0].toUpperCase();result.recognized=true;}
+  return result;
 }
-function FloorPlan({active,onSelect}:{active:RoomName;onSelect:(room:RoomName)=>void}) {
-  const {camera}=useThree(); const controls=useRef<OrbitControlsImpl>(null);
-  useEffect(()=>{
-    const targets:Record<RoomName,[number,number,number]>={"Living room":[-1.7,0,1.2],Kitchen:[-1.7,0,-1.25],Bedroom:[1.45,0,1.1],Bathroom:[1.55,0,-1.35]};
-    const target=targets[active]; const positions:Record<RoomName,[number,number,number]>={"Living room":[-5,7,8],Kitchen:[-5,7,6],Bedroom:[6,7,8],Bathroom:[6,7,6]};
-    camera.position.set(...positions[active]); camera.lookAt(...target); camera.updateProjectionMatrix();
-    if(controls.current){controls.current.target.set(...target);controls.current.update();}
-  },[active,camera]);
-  const highlight=(name:RoomName)=>active===name?"#d28c5e":"#8b7867";
-  return <>
-    <ambientLight intensity={1.2}/><directionalLight position={[4,9,6]} intensity={2.8} color="#ffe2c8" castShadow/><Environment preset="apartment"/>
-    <group position={[0,-.12,0]}>
-      <mesh rotation={[-Math.PI/2,0,0]} position={[0,-.08,0]} receiveShadow><planeGeometry args={[9.15,7.1]}/><meshStandardMaterial color="#ded0bc" roughness={.93}/></mesh>
-      <mesh position={[-2.3,.015,0]} onClick={(e)=>{e.stopPropagation();onSelect("Living room");}}><boxGeometry args={[4.45,.055,3.45]}/><meshStandardMaterial color={highlight("Living room")}/></mesh>
-      <mesh position={[-2.3,.016,-2.1]} onClick={(e)=>{e.stopPropagation();onSelect("Kitchen");}}><boxGeometry args={[4.45,.055,.72]}/><meshStandardMaterial color={highlight("Kitchen")}/></mesh>
-      <mesh position={[2.25,.015,0]} onClick={(e)=>{e.stopPropagation();onSelect("Bedroom");}}><boxGeometry args={[4.25,.055,3.45]}/><meshStandardMaterial color={highlight("Bedroom")}/></mesh>
-      <mesh position={[2.25,.016,-2.1]} onClick={(e)=>{e.stopPropagation();onSelect("Bathroom");}}><boxGeometry args={[4.25,.055,.72]}/><meshStandardMaterial color={highlight("Bathroom")}/></mesh>
-      {/* Cutaway walls keep the furniture visible from above. */}
-      <Box position={[-4.5,.63,0]} scale={[.16,1.35,7]} color="#eee7dd"/><Box position={[4.5,.63,0]} scale={[.16,1.35,7]} color="#eee7dd"/><Box position={[0,.63,-3.5]} scale={[9,1.35,.16]} color="#eee7dd"/>
-      <Box position={[0,.63,3.5]} scale={[2.2,1.35,.16]} color="#eee7dd"/><Box position={[-3.15,.63,3.5]} scale={[2.5,1.35,.16]} color="#eee7dd"/><Box position={[3.1,.63,3.5]} scale={[2.7,1.35,.16]} color="#eee7dd"/>
-      <Box position={[0,.6,-.25]} scale={[.13,1.2,2.4]} color="#e4d7c7"/><Box position={[0,.6,-2.85]} scale={[.13,1.2,.8]} color="#e4d7c7"/><Box position={[0,.6,2.9]} scale={[.13,1.2,1.2]} color="#e4d7c7"/>
-      {/* Living and dining */}
-      <Box position={[-2.8,.27,1.25]} scale={[2.1,.42,.72]} color="#8f6652"/><Box position={[-2.8,.54,1.62]} scale={[2.1,.62,.14]} color="#a77a63"/><Box position={[-3.75,.51,1.28]} scale={[.14,.54,.8]} color="#a77a63"/>
-      <Box position={[-1.3,.24,.75]} scale={[1.05,.18,.72]} color="#cba67f"/><Box position={[-1.3,.1,.75]} scale={[.12,.2,.12]} color="#765c48"/><Box position={[-1.3,.1,1.38]} scale={[.12,.2,.12]} color="#765c48"/>
-      <Box position={[-1.35,.28,-.48]} scale={[1.25,.56,.7]} color="#584c43"/><Box position={[-1.35,.58,-.48]} scale={[1.15,.08,.6]} color="#b79472"/>
-      {/* Kitchen */}
-      <Box position={[-3.25,.45,-2.55]} scale={[2.25,.85,.55]} color="#b6a18a"/><Box position={[-3.25,.91,-2.55]} scale={[2.32,.08,.62]} color="#ddd1bf"/><Box position={[-1.6,.36,-2.75]} scale={[.65,.7,.75]} color="#716b63"/>
-      {/* Bedroom */}
-      <Box position={[2.1,.21,1.1]} scale={[2.4,.23,1.65]} color="#cbb89e"/><Box position={[2.1,.45,1.4]} scale={[2.4,.36,.16]} color="#826750"/><Box position={[2.1,.37,.92]} scale={[2.15,.12,1.1]} color="#eee5d8"/><Box position={[1.45,.47,.35]} scale={[.55,.12,.38]} color="#f4efe6"/><Box position={[2.65,.47,.35]} scale={[.55,.12,.38]} color="#f4efe6"/>
-      <Box position={[3.9,.55,1.5]} scale={[.68,1.1,2.5]} color="#89715c"/>
-      {/* Bathroom */}
-      <Box position={[3.4,.22,-2.7]} scale={[1.55,.34,.9]} color="#d7cec1"/><Box position={[3.4,.42,-2.65]} scale={[.5,.12,.32]} color="#f2eee8"/><Box position={[1.55,.25,-2.72]} scale={[.7,.4,.55]} color="#eee9e0"/><Box position={[1.55,.47,-2.72]} scale={[.55,.06,.48]} color="#c6b9a7"/>
-    </group>
-    <OrbitControls ref={controls} enablePan={false} minDistance={6} maxDistance={13} minPolarAngle={.45} maxPolarAngle={1.25} makeDefault/>
-  </>;
+function FloorPlan({apartment,onClose}:{apartment:Apartment;onClose:()=>void}){
+  return <motion.div className="modal-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={onClose}><motion.section className="floor-modal" initial={{opacity:0,y:10,scale:.98}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:8}} onClick={e=>e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="floor-title">
+    <header className="modal-header"><div><span className="overline">{apartment.tower.toUpperCase()} <i>·</i> FLOOR {apartment.floor}</span><h2 id="floor-title">Apartment {apartment.id}</h2></div><button className="square-icon" onClick={onClose} aria-label="Close floor plan"><X size={16}/></button></header>
+    <div className="floor-plan"><svg viewBox="0 0 460 300" role="img" aria-label={`Illustrative ${apartment.bedrooms} bedroom floor plan with living room, kitchen and bathrooms`}><rect x="14" y="14" width="432" height="272" rx="2" fill="#e5d9c8" stroke="#b8a58e" strokeWidth="6"/><path d="M254 14v272M14 179h240M254 155h192M356 155v131M14 179h105v107" fill="none" stroke="#837668" strokeWidth="5"/><path d="M25 25h210v137H25z" fill="#d6c2a9"/><path d="M25 190h80v86H25z" fill="#ccb79b"/><path d="M265 25h166v117H265z" fill="#dfcfb8"/><path d="M265 167h80v109h-80z" fill="#d7c5ac"/><path d="M367 167h64v109h-64z" fill="#c7b39c"/><rect x="55" y="55" width="125" height="54" rx="8" fill="#aa8265"/><rect x="151" y="122" width="62" height="28" rx="5" fill="#b49b7e"/>{apartment.bedrooms===3?<><path d="M350 18v124" stroke="#837668" strokeWidth="5"/><rect x="272" y="48" width="62" height="47" rx="4" fill="#b8a58d"/><rect x="359" y="48" width="62" height="47" rx="4" fill="#b8a58d"/><text x="310" y="38" textAnchor="middle">BEDROOM 1</text><text x="390" y="38" textAnchor="middle">BEDROOM 2</text></>:<><rect x="283" y="44" width="115" height="67" rx="4" fill="#b8a58d"/><rect x="296" y="51" width="88" height="52" fill="#e4d9c9"/><text x="348" y="35" textAnchor="middle">BEDROOM 1</text></>}<rect x="145" y="201" width="72" height="42" rx="5" fill="#b8a58d"/><text x="184" y="195" textAnchor="middle">BEDROOM {apartment.bedrooms===3?"3":"2"}</text><rect x="280" y="193" width="46" height="30" rx="3" fill="#b6a792"/><rect x="382" y="190" width="34" height="52" rx="6" fill="#a9b8b2"/><text x="130" y="35" textAnchor="middle">LIVING & DINING</text><text x="63" y="214" textAnchor="middle">KITCHEN</text><text x="305" y="250" textAnchor="middle">BATH</text><text x="400" y="260" textAnchor="middle">UTILITY</text></svg></div>
+    <div className="plan-footer"><span><Maximize2 size={13}/>{apartment.area.toLocaleString()} sq.ft.</span><span>Illustrative floor plan · Not to scale</span></div>
+  </motion.section></motion.div>;
 }
 
-export default function Home(){
-  const [tab,setTab]=useState<"details"|"tour">("details"); const [room,setRoom]=useState<RoomName>("Living room"); const [roomViews,setRoomViews]=useState(0); const [showVisit,setShowVisit]=useState(false); const [visitSent,setVisitSent]=useState(false);
-  const roomData=roomCopy[room];
-  const selectRoom=(next:RoomName)=>{setRoom(next);setRoomViews(n=>n+1);};
-  return <main className="estate-app">
-    <header className="app-header"><a className="brand" href="#"><span className="brand-icon"><Building2 size={18}/></span><span>estate<b>verse</b><small>PROPERTY PREVIEW</small></span></a><div className="header-project"><span className="project-dot"/> AURELIA HEIGHTS <span className="header-slash">/</span> APARTMENT A-0802</div></header>
-    <div className="app-content">
-      <div className="intro"><div><div className="eyebrow">AURELIA HEIGHTS <span>·</span> FINANCIAL DISTRICT, HYDERABAD</div><h1>A home, seen from the inside.</h1><p>Explore apartment A-0802 at your own pace.</p></div><div className="intro-chip"><span/> UNDER CONSTRUCTION <span className="chip-dot">·</span> HANDOVER DEC 2027</div></div>
-      <div className="experience-card">
-        <div className="tabbar" role="tablist" aria-label="Apartment views"><button role="tab" aria-selected={tab==="details"} className={tab==="details"?"active":""} onClick={()=>setTab("details")}><HomeIcon size={15}/>Apartment details</button><button role="tab" aria-selected={tab==="tour"} className={tab==="tour"?"active":""} onClick={()=>setTab("tour")}><Move3d size={15}/>3D tour <span className="new-badge">INTERACTIVE</span></button><span className="tab-spacer"/><span className="unit-id">UNIT <b>A-0802</b></span></div>
-        <AnimatePresence mode="wait">
-        {tab==="details"?<motion.section key="details" className="detail-view" role="tabpanel" initial={{opacity:0,y:5}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-4}} transition={{duration:.2}}>
-          <div className="detail-hero"><div className="hero-copy"><span className="available-tag"><i/> AVAILABLE</span><h2>A thoughtful<br/>place to call home.</h2><p>Bright, well-planned living in the heart of Hyderabad’s Financial District.</p><button className="primary-button" onClick={()=>setShowVisit(true)}>Request a visit <ArrowRight size={15}/></button></div><div className="floor-art" aria-label="Illustration of a modern apartment building"><div className="art-glow"/><div className="art-building"><div className="art-roof"/>{Array.from({length:8},(_,i)=><div key={i} className="art-floor"><span/><span/><span/></div>)}<div className="art-base"/></div><div className="art-side-line line-one"/><div className="art-side-line line-two"/><div className="art-caption"><span/> AURELIA HEIGHTS <small>UNIT A-0802</small></div></div></div>
-          <div className="facts-grid"><div className="fact"><BedDouble size={16}/><div><small>CONFIGURATION</small><b>2 BHK</b></div></div><div className="fact"><Maximize2 size={15}/><div><small>AREA</small><b>1,240 <span>sq.ft.</span></b></div></div><div className="fact"><Compass size={15}/><div><small>FACING</small><b>East</b></div></div><div className="fact"><Building2 size={15}/><div><small>FLOOR</small><b>08 <span>of 13</span></b></div></div></div>
-          <div className="detail-lower"><div><h3>Designed for daily life</h3><p>An open living area, a practical kitchen, and a quiet bedroom—every space has room to work.</p><div className="amenities"><span><Check size={12}/> Balcony</span><span><Check size={12}/> Covered parking</span><span><Check size={12}/> Clubhouse access</span></div></div><div className="price-card"><small>APARTMENT A-0802</small><b>₹77 lakh</b><span>Indicative price · local demo data</span><button onClick={()=>setTab("tour")}>Take the 3D tour <ArrowRight size={13}/></button></div></div>
-        </motion.section>:<motion.section key="tour" className="tour-view" role="tabpanel" initial={{opacity:0,y:5}} animate={{opacity:1,y:0}} exit={{opacity:0,y:-4}} transition={{duration:.2}}>
-          <div className="tour-heading"><div><span className="eyebrow">APARTMENT A-0802 <span>·</span> 1,240 SQ.FT.</span><h2>Walk through your future home.</h2><p>Click a room in the model or choose it from the list. Drag to look around.</p></div><button className="reset-view" onClick={()=>selectRoom("Living room")}><RotateCcw size={13}/> Reset view</button></div>
-          <div className="tour-layout"><div className="scene"><div className="scene-chip"><span/> LIVE 3D MODEL</div><div className="scene-hint"><Move3d size={12}/> DRAG TO ROTATE <span>·</span> SCROLL TO ZOOM</div><Canvas shadows camera={{position:[-5,7,8],fov:42}} gl={{antialias:true,alpha:true}}><color attach="background" args={["#211d1a"]}/><FloorPlan active={room} onSelect={selectRoom}/></Canvas><div className="scene-footer"><span>ROOM FOCUS <b>{room.toUpperCase()}</b></span><span>{roomViews} room views</span></div></div>
-            <aside className="room-panel"><div className="room-panel-top"><span className="eyebrow">EXPLORE THE APARTMENT</span><b>Choose a room</b></div><div className="room-list">{rooms.map((name)=><button key={name} className={`room-choice ${room===name?"active":""}`} onClick={()=>selectRoom(name)}><span className="room-number">{roomCopy[name].icon}</span><span className="room-choice-copy"><b>{name}</b><small>{roomCopy[name].size}</small></span>{room===name?<span className="room-current"><Play size={10} fill="currentColor"/></span>:<ArrowRight size={14}/>}</button>)}</div><motion.div className="room-note" key={room} initial={{opacity:0,y:4}} animate={{opacity:1,y:0}}><span className="eyebrow">{room.toUpperCase()} · {roomData.size}</span><h3>{roomData.subtitle}</h3><p>{roomData.detail}</p></motion.div><button className="tour-details-link" onClick={()=>setTab("details")}><ArrowLeft size={13}/> Apartment details</button></aside></div>
-        </motion.section>}
-        </AnimatePresence>
+export default function HomePage(){
+  const [selectedId,setSelectedId]=useState(apartments[0].id); const [query,setQuery]=useState(""); const [appliedQuery,setAppliedQuery]=useState("");
+  const [minPrice,setMinPrice]=useState(70);const [maxPrice,setMaxPrice]=useState(140);const [minArea,setMinArea]=useState(1000);const [maxArea,setMaxArea]=useState(2000);const [bedrooms,setBedrooms]=useState<"Any"|"2"|"3">("Any");const [facing,setFacing]=useState<FacingFilter>("Any");const [statuses,setStatuses]=useState<Set<Availability>>(new Set(statusOptions));const [sortBy,setSortBy]=useState<"tower"|"price">("tower");
+  const [showInsights,setShowInsights]=useState(false);const [planUnit,setPlanUnit]=useState<Apartment|null>(null);const [resetKey,setResetKey]=useState(0);
+  const [engagement,setEngagement]=useState({unitSelections:0,searches:0,filterChanges:0,floorPlans:0});
+  const searchRule=useMemo(()=>parseSearch(appliedQuery),[appliedQuery]);
+  const visible=useMemo(()=>{
+    if(appliedQuery&&!searchRule.recognized)return [];
+    return apartments.filter(a=>a.price>=minPrice&&a.price<=maxPrice&&a.area>=minArea&&a.area<=maxArea&&(bedrooms==="Any"||a.bedrooms===Number(bedrooms))&&(facing==="Any"||a.facing===facing)&&statuses.has(a.availability)&&(!searchRule.bedrooms||a.bedrooms===searchRule.bedrooms)&&(!searchRule.maxPrice||(searchRule.maxPriceInclusive?a.price<=searchRule.maxPrice:a.price<searchRule.maxPrice))&&(!searchRule.facing||a.facing===searchRule.facing)&&(!searchRule.status||a.availability===searchRule.status)&&(!searchRule.id||a.id===searchRule.id)).sort((a,b)=>sortBy==="price"?a.price-b.price:(a.tower.localeCompare(b.tower)||a.floor-b.floor));
+  },[appliedQuery,searchRule,minPrice,maxPrice,minArea,maxArea,bedrooms,facing,statuses,sortBy]);
+  const selected=apartments.find(a=>a.id===selectedId)??null;
+  useEffect(()=>{if(visible.length===0){if(selectedId)setSelectedId("");}else if(!visible.some(a=>a.id===selectedId))setSelectedId(visible[0].id);},[visible,selectedId]);
+  const chartData=[{name:"Unit views",value:engagement.unitSelections},{name:"Searches",value:engagement.searches},{name:"Filter edits",value:engagement.filterChanges},{name:"Floor plans",value:engagement.floorPlans}];
+  const availableCount=apartments.filter(a=>a.availability==="Available").length;
+  const selectUnit=(id:string)=>{setSelectedId(id);setEngagement(e=>({...e,unitSelections:e.unitSelections+1}));};
+  const recordFilter=()=>setEngagement(e=>({...e,filterChanges:e.filterChanges+1}));
+  const setStatus=(status:Availability)=>{setStatuses(prev=>{const next=new Set(prev);if(next.has(status))next.delete(status);else next.add(status);return next;});recordFilter();};
+  const submitSearch=(e:FormEvent)=>{e.preventDefault();if(!query.trim())return;setAppliedQuery(query.trim());setEngagement(g=>({...g,searches:g.searches+1}));};
+  const resetFilters=()=>{setMinPrice(70);setMaxPrice(140);setMinArea(1000);setMaxArea(2000);setBedrooms("Any");setFacing("Any");setStatuses(new Set(statusOptions));setAppliedQuery("");setQuery("");setSelectedId(apartments[0].id);recordFilter();};
+  const openPlan=()=>{if(!selected)return;setPlanUnit(selected);setEngagement(e=>({...e,floorPlans:e.floorPlans+1}));};
+  const visibleIds=new Set(visible.map(a=>a.id));
+
+  return <main className="estate-shell">
+    <header className="topbar"><a className="wordmark" href="#"><span className="mark"><Building2 size={17}/></span><span>estate<b>verse</b><small>INTERACTIVE PROPERTY PREVIEW</small></span></a><div className="project-crumb"><span className="crumb-light">PROJECT</span><ChevronRight size={13}/><b>Aurelia Heights</b><span className="crumb-location"><MapPin size={12}/>Hyderabad, India</span></div><div className="topbar-right"><span className="demo-pill"><i/> FICTIONAL DEMO DATA</span><button className="insights-button" onClick={()=>setShowInsights(true)}><Activity size={14}/> Session insights <span>{Object.values(engagement).reduce((sum,n)=>sum+n,0)}</span></button></div></header>
+    <div className="workspace">
+      <div className="page-heading"><div><div className="eyebrow">AURELIA HEIGHTS <span>·</span> FINANCIAL DISTRICT</div><h1>Find a home that fits.</h1><p>Explore the development. Select a home. See the details.</p></div><div className="overview-metrics"><span><Building2 size={14}/><b>{apartments.length}</b> sample homes</span><span><i className="status-dot"/><b>{availableCount}</b> available</span></div></div>
+      <div className="search-row"><form className="natural-search" onSubmit={submitSearch}><Search size={16}/><input aria-label="Search homes using words or a unit ID" value={query} onChange={e=>setQuery(e.target.value)} placeholder="Try “2 BHK under 80 lakh” or “A-0402”"/><button type="submit">Search <ArrowRight size={13}/></button></form><span className="search-note">Local rule-based search <span>·</span> no AI or external service</span></div>
+      <div className="discovery-grid">
+        <aside className="filter-panel"><div className="section-heading"><div className="section-title"><SlidersHorizontal size={15}/><h2>Filter homes</h2></div><button className="text-button" onClick={resetFilters}>Reset</button></div>
+          <div className="filter-section"><div className="filter-label"><span>Budget range</span><b>{formatPrice(minPrice)} – {formatPrice(maxPrice)}</b></div><div className="range-pair"><label><span>Min</span><input aria-label="Minimum budget in lakh" type="range" min="70" max="130" step="1" value={minPrice} onChange={e=>{const n=Math.min(Number(e.target.value),maxPrice);setMinPrice(n);recordFilter();}}/></label><label><span>Max</span><input aria-label="Maximum budget in lakh" type="range" min="70" max="140" step="1" value={maxPrice} onChange={e=>{const n=Math.max(Number(e.target.value),minPrice);setMaxPrice(n);recordFilter();}}/></label></div><div className="range-ends"><span>₹70L</span><span>₹1.4Cr</span></div></div>
+          <div className="filter-section"><div className="filter-label"><span>Area</span><b>{minArea.toLocaleString()} – {maxArea.toLocaleString()} sq.ft.</b></div><div className="range-pair"><label><span>Min</span><input aria-label="Minimum area" type="range" min="1000" max="1800" step="20" value={minArea} onChange={e=>{setMinArea(Math.min(Number(e.target.value),maxArea));recordFilter();}}/></label><label><span>Max</span><input aria-label="Maximum area" type="range" min="1200" max="2000" step="20" value={maxArea} onChange={e=>{setMaxArea(Math.max(Number(e.target.value),minArea));recordFilter();}}/></label></div><div className="range-ends"><span>1,000 sq.ft.</span><span>2,000 sq.ft.</span></div></div>
+          <div className="filter-section"><span className="filter-label standalone">Bedrooms</span><div className="segmented">{(["Any","2","3"] as const).map(value=><button key={value} className={bedrooms===value?"active":""} onClick={()=>{setBedrooms(value);recordFilter();}}>{value==="Any"?"Any":`${value} BHK`}</button>)}</div></div>
+          <div className="filter-section"><div className="filter-label"><span>Facing</span>{facing!=="Any"&&<button className="inline-clear" onClick={()=>{setFacing("Any");recordFilter();}}>Clear</button>}</div><div className="chip-grid">{(["North","East","South","West"] as const).map(dir=><button key={dir} className={facing===dir?"active":""} onClick={()=>{setFacing(facing===dir?"Any":dir);recordFilter();}}><Compass size={11}/>{dir}</button>)}</div></div>
+          <div className="filter-section"><div className="filter-label"><span>Availability</span></div><div className="status-filters">{statusOptions.map(s=><button key={s} onClick={()=>setStatus(s)} className={statuses.has(s)?"active":""}><span className={`tiny-status ${s.toLowerCase()}`}/>{s}<span className="filter-check">{statuses.has(s)&&<Check size={10}/>}</span></button>)}</div></div>
+          <div className="filter-footer"><span>{visible.length} matching homes</span><span className="match-dot"/></div>
+        </aside>
+
+        <section className="model-panel"><div className="model-top"><div><span className="model-kicker"><i/> INTERACTIVE DEVELOPMENT</span><h2>Explore Aurelia Heights</h2><p>Click a highlighted apartment to inspect it. Drag to orbit, scroll to zoom.</p></div><button className="square-icon" onClick={()=>setResetKey(v=>v+1)} aria-label="Reset camera"><RotateCcw size={14}/></button></div>
+          <div className="model-stage"><div className="model-location"><MapPin size={12}/> FINANCIAL DISTRICT, HYDERABAD</div><div className="scene-legend"><span><i className="legend-match"/>Matches</span><span><i className="legend-selected"/>Selected</span></div><DevelopmentScene selectedId={selectedId} visibleIds={visibleIds} onSelect={selectUnit} resetKey={resetKey}/><div className="tower-label label-a">TOWER A</div><div className="tower-label label-b">TOWER B</div><div className="tower-label label-c">TOWER C</div><div className="model-help"><Move3DIcon/> DRAG TO ORBIT <span>·</span> SCROLL TO ZOOM</div><div className="model-caption"><span>01 / 03</span> RESIDENTIAL CLUSTER <span className="caption-line"/></div></div>
+          <div className="model-bottom"><span><Building2 size={13}/> 3 TOWERS <i>·</i> RESIDENTIAL</span><button onClick={()=>setShowInsights(true)}>View session activity <ArrowDownRight size={13}/></button></div>
+        </section>
+
+        <aside className="inventory-panel"><div className="inventory-head"><div><span className="eyebrow">PROPERTY INVENTORY</span><h2>{visible.length} homes <span>found</span></h2></div><button className="sort-button" aria-label="Change inventory sort order" onClick={()=>{setSortBy(s=>s==="price"?"tower":"price");recordFilter();}}><ArrowDownRight size={13}/> {sortBy==="price"?"Price":"Tower / floor"}</button></div>
+          {selected&&<div className="selected-card"><div className="selected-top"><div className="unit-number"><Home size={15}/></div><div className="selected-title"><span>SELECTED APARTMENT</span><b>{selected.id}</b></div><span className={`availability-badge ${selected.availability.toLowerCase()}`}>{selected.availability}</span></div><div className="selected-sub"><span>{selected.tower}</span><i/> Floor {selected.floor}<i/> {selected.facing} facing</div><div className="selected-price"><b>{formatPrice(selected.price)}</b><span>Indicative price</span></div><div className="selected-facts"><span><BedDouble size={13}/>{selected.bedrooms} BHK</span><span><Maximize2 size={13}/>{selected.area.toLocaleString()} sq.ft.</span><span><Compass size={13}/>{selected.facing}</span></div><button className="floor-plan-button" onClick={openPlan}>View floor plan <ArrowRight size={14}/></button></div>}
+          <div className="list-title"><span>HOMES</span><span>UNIT / PRICE</span></div><div className="unit-list">{visible.length?visible.map((a)=><button key={a.id} className={`unit-item ${selectedId===a.id?"active":""}`} onClick={()=>selectUnit(a.id)}><span className="unit-icon"><Building2 size={13}/></span><span className="unit-copy"><b>{a.id}<small>{a.tower} · Floor {a.floor}</small></b></span><span className="unit-value"><b>{formatPrice(a.price)}</b><small>{a.bedrooms} BHK · {a.area.toLocaleString()} ft²</small></span></button>):<div className="empty-results"><Search size={20}/><b>No matching homes</b><span>Widen a filter or try “2 BHK under 80 lakh”.</span><button onClick={resetFilters}>Clear all filters</button></div>}</div>
+          <div className="inventory-footer">Fictional demo inventory <span>{visible.length} / {apartments.length}</span></div>
+        </aside>
       </div>
-      <footer className="app-footer"><span>ESTATEVERSE <span>·</span> AURELIA HEIGHTS</span><span><MapPin size={12}/> Financial District, Hyderabad</span><span>INTERACTIVE PROPERTY PREVIEW</span></footer>
+      <footer className="workspace-footer"><span>ESTATEVERSE <i>·</i> AURELIA HEIGHTS</span><span>Concept MVP <i>·</i> local sample data</span></footer>
     </div>
-    <AnimatePresence>{showVisit&&<motion.div className="modal-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={()=>setShowVisit(false)}><motion.div className="visit-modal" initial={{opacity:0,y:12,scale:.98}} animate={{opacity:1,y:0,scale:1}} exit={{opacity:0,y:10}} onClick={e=>e.stopPropagation()}>{visitSent?<><div className="success-mark"><Check size={21}/></div><h2>Thanks for your interest.</h2><p>This is a local demo, so your request hasn’t been sent anywhere.</p><button className="primary-button" onClick={()=>{setShowVisit(false);setVisitSent(false);}}>Done <Check size={14}/></button></>:<><button className="modal-close" onClick={()=>setShowVisit(false)} aria-label="Close"><X size={16}/></button><span className="eyebrow">AURELIA HEIGHTS · A-0802</span><h2>Request a visit</h2><p>Share your details and we’ll arrange a walkthrough.</p><label>Your name<input placeholder="e.g. Ananya Rao"/></label><label>Email address<input type="email" placeholder="you@example.com"/></label><button className="primary-button modal-submit" onClick={()=>setVisitSent(true)}>Send request <ArrowRight size={14}/></button><small className="demo-note">Demo only · no information leaves this page.</small></>}</motion.div></motion.div>}</AnimatePresence>
+    <AnimatePresence>{planUnit&&<FloorPlan key="floor-plan" apartment={planUnit} onClose={()=>setPlanUnit(null)}/>}</AnimatePresence>
+    <AnimatePresence>{showInsights&&<motion.div className="modal-backdrop" initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} onClick={()=>setShowInsights(false)}><motion.section className="insights-modal" initial={{opacity:0,y:10}} animate={{opacity:1,y:0}} exit={{opacity:0,y:8}} onClick={e=>e.stopPropagation()} role="dialog" aria-modal="true" aria-labelledby="insights-title"><header className="modal-header"><div><span className="overline">CURRENT DEMO VISIT</span><h2 id="insights-title">Visitor activity</h2></div><button className="square-icon" onClick={()=>setShowInsights(false)} aria-label="Close session insights"><X size={16}/></button></header><div className="insight-metrics"><div><span>Apartment selections</span><b>{engagement.unitSelections}</b></div><div><span>Searches</span><b>{engagement.searches}</b></div><div><span>Filter changes</span><b>{engagement.filterChanges}</b></div><div><span>Floor plans opened</span><b>{engagement.floorPlans}</b></div></div><div className="chart-heading"><span>INTERACTIONS</span><small>Counts from this demo visit</small></div>{Object.values(engagement).some(Boolean)?<div className="activity-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={chartData} margin={{top:10,right:4,left:-18,bottom:0}}><CartesianGrid stroke="#353236" vertical={false}/><XAxis dataKey="name" tick={{fill:"#aaa0a0",fontSize:9}} axisLine={false} tickLine={false}/><Tooltip cursor={{fill:"#322b27"}} contentStyle={{background:"#1e1b1d",border:"1px solid #49403c",borderRadius:5,color:"#f0e9e4",fontSize:10}}/><Bar dataKey="value" name="Interactions" fill="#e59a68" radius={[4,4,0,0]}/></BarChart></ResponsiveContainer></div>:<div className="chart-empty"><Activity size={18}/><span>Explore a home to see this visit’s activity.</span></div>}<p className="analytics-note">Visit-only demo metrics. No visitor data is sent or saved.</p></motion.section></motion.div>}</AnimatePresence>
   </main>;
 }
+
+function Move3DIcon(){return <span className="move-icon">↗</span>}
