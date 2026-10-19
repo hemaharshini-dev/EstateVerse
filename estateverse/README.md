@@ -4,6 +4,10 @@ EstateVerse is a portfolio MVP for interactive residential property discovery. I
 
 This is an independent concept project. It is not an official Flux Real product, and it does not connect to Flux Real services or customer data.
 
+## Live demo
+
+[Open EstateVerse](https://estate-verse-nextgen.vercel.app/)
+
 ## What the project implements
 
 - **Procedural 3D development view:** Orbit and zoom around a generated three-tower scene. Apartments in the local inventory are selectable, and visual states distinguish matches from the current selection.
@@ -67,3 +71,14 @@ npm start
 - Search uses a fixed set of recognized criteria over local records. It does not use an LLM.
 - The development, apartment cutaway, and floor plan are conceptual illustrations. They are not construction-accurate assets or verified property listings.
 - Engagement counts are held in application state for the current visit; they are not persisted or transmitted.
+
+## Future scope: AI-assisted discovery
+
+AI is not part of the current implementation. The existing search is deterministic and uses only the local sample inventory. A future version could add an AI-assisted guide while keeping property facts grounded in a verified inventory source:
+
+- Interpret more flexible buyer questions and translate them into explicit filters, then show the criteria used and matching homes.
+- Answer follow-up questions about a selected home using only approved property, amenity, and availability data; say when the data does not contain an answer.
+- Offer multilingual text or voice guidance, with an optional handoff to a sales representative.
+- With appropriate consent and a real backend, send user-approved lead details and capture interaction events for a sales team. The current demo does not collect leads or send analytics.
+
+Any AI layer should keep generated explanations separate from verified listing data, disclose uncertainty, and avoid inventing availability, pricing, or property features.
